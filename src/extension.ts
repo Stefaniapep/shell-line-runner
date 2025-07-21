@@ -1,45 +1,44 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 
-export class ShellLineCodeLensProvider implements vscode.CodeLensProvider {
-    public provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+class ShellLineCodeLensProvider implements vscode.CodeLensProvider {
+    async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
         const codeLenses: vscode.CodeLens[] = [];
-        
         for (let i = 0; i < document.lineCount; i++) {
             const line = document.lineAt(i);
             if (line.text.trim().length > 0) {
                 const range = new vscode.Range(i, 0, i, 0);
-                const command = {
-                    title: "$(play) Run",
+                codeLenses.push(new vscode.CodeLens(range, {
+                    title: '▶',
                     command: 'shell-line-runner.runLine',
-                    arguments: [document, i]
-                };
-                codeLenses.push(new vscode.CodeLens(range, command));
+                    arguments: [i]
+                }));
             }
         }
-        
         return codeLenses;
     }
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    const codeLensProvider = new ShellLineCodeLensProvider();
-    
+    // Register CodeLens provider
     context.subscriptions.push(
         vscode.languages.registerCodeLensProvider(
-            { language: 'shellscript', scheme: 'file' },
-            codeLensProvider
+            { language: 'shellscript' },
+            new ShellLineCodeLensProvider()
         )
     );
 
+    // Register command handler
     context.subscriptions.push(
-        vscode.commands.registerCommand('shell-line-runner.runLine', 
-            (document: vscode.TextDocument, line: number) => {
+        vscode.commands.registerCommand('shell-line-runner.runLine', (line: number) => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                const lineText = editor.document.lineAt(line).text;
                 const terminal = vscode.window.activeTerminal || vscode.window.createTerminal();
-                const lineText = document.lineAt(line).text;
                 terminal.show();
                 terminal.sendText(lineText);
             }
-        )
+        })
     );
 }
 
