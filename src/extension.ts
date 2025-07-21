@@ -231,18 +231,27 @@ export function activate(context: vscode.ExtensionContext) {
         );
         
         // Gestisci il movimento del mouse per l'hover
+        // NOTA: La gestione dei click è stata semplificata usando onDidChangeTextEditorSelection
+        // che è un modo comune ma non perfetto per rilevare i click.
+        // Potrebbe attivarsi anche con la navigazione da tastiera.
+        // Un'API più robusta per i click sui gutter non esiste ancora.
         context.subscriptions.push(
             vscode.window.onDidChangeTextEditorSelection(event => {
+                // Controlla che sia un file shellscript e che l'evento non sia una selezione di testo
                 if (event.textEditor.document.languageId === 'shellscript') {
+                     const position = event.selections[0].active;
+                    // Prova a gestire il click solo se la selezione è vuota (un cursore)
+                    if (event.selections.length === 1 && event.selections[0].isEmpty) {
+                        const clicked = decorationProvider.handleClick(event.textEditor, position);
+                        // Se non è stato un click sul decoratore, gestisci l'hover
+                        if (!clicked) {
+                           decorationProvider.handleMouseMove(event.textEditor, position);
+                        }
+                    }
+                } else if (event.textEditor.document.languageId === 'shellscript') {
+                    // Gestisci comunque l'hover durante la selezione con il mouse
                     const position = event.selections[0].active;
                     decorationProvider.handleMouseMove(event.textEditor, position);
-                    
-                    // Gestisci anche i click
-                    setTimeout(() => {
-                        if (event.selections.length === 1 && event.selections[0].isEmpty) {
-                            decorationProvider.handleClick(event.textEditor, position);
-                        }
-                    }, 10);
                 }
             })
         );
@@ -265,8 +274,26 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('shell-line-runner.runLine', (line: number) => {
             const editor = vscode.window.activeTextEditor;
-            if (editor) {
-                const lineText = editor.document.lineAt(line).text;
+            if (editor && editor.document.languageId === 'shellscript') {
+                
+                // --- NUOVA LOGICA: EVIDENZIARE LA RIGA ---
+                
+                // 1. Otteniamo l'oggetto completo della riga per accedere al suo range.
+                const lineObject = editor.document.lineAt(line);
+                const lineText = lineObject.text;
+
+                // 2. Creiamo una nuova selezione che copre l'intera riga.
+                const selection = new vscode.Selection(lineObject.range.start, lineObject.range.end);
+
+                // 3. Applichiamo la selezione all'editor.
+                editor.selection = selection;
+                
+                // 4. (Opzionale ma consigliato) Assicuriamoci che la riga sia visibile.
+                editor.revealRange(lineObject.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+
+                // --- FINE NUOVA LOGICA ---
+
+                // 5. Eseguiamo il comando nel terminale.
                 const terminal = vscode.window.activeTerminal || vscode.window.createTerminal();
                 terminal.show();
                 terminal.sendText(lineText);
@@ -280,3 +307,4 @@ export function deactivate() {
         decorationProvider.dispose();
     }
 }
+
