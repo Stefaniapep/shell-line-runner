@@ -17,6 +17,7 @@ class ShellLineDecorationProvider {
                 color: 'rgba(255,255,255,0.8)',
                 margin: '0 4px 0 0',
                 textDecoration: 'none; cursor: pointer;',
+                width: 'auto',
             },
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
         });
@@ -28,6 +29,7 @@ class ShellLineDecorationProvider {
                 color: 'rgba(255,255,255,0.1)',
                 margin: '0 4px 0 0',
                 textDecoration: 'none; cursor: pointer;',
+                width: 'auto',
             },
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
         });
@@ -82,7 +84,8 @@ class ShellLineDecorationProvider {
         if (!ranges) return;
 
         for (const range of ranges) {
-            if (range.contains(position)) {
+            // Solo se il click è esattamente all’inizio della riga (colonna 0)
+            if (range.start.line === position.line && position.character === 0) {
                 return range.start.line;
             }
         }
