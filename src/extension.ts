@@ -141,35 +141,41 @@ export function activate(context: vscode.ExtensionContext) {
             const currentSelection = event.selections[0];
             const selectionBeforeClick = lastSelection;
             lastSelection = currentSelection;
-            
-            decorationProvider.updateDecorations(editor, currentSelection);
-            
-            const clickedLine = decorationProvider.getClickedLine(editor, currentSelection.active);
 
-            // Controlla se l'evento è un click su una decorazione ▶
+            const clickedLine = decorationProvider.getClickedLine(editor, currentSelection.active);
+            const visibleLine = decorationProvider.getVisibleLine();
+            const wasMultiLine = selectionBeforeClick && !selectionBeforeClick.isEmpty && (selectionBeforeClick.start.line !== selectionBeforeClick.end.line);
+
+            // ⚠️ Solo dopo aver ottenuto clickedLine aggiorniamo le decorazioni
+            decorationProvider.updateDecorations(editor, currentSelection);
+
             if (
                 event.kind === vscode.TextEditorSelectionChangeKind.Mouse &&
                 currentSelection.isEmpty &&
                 clickedLine !== undefined
             ) {
-                const wasMultiLine = selectionBeforeClick && !selectionBeforeClick.isEmpty && (selectionBeforeClick.start.line !== selectionBeforeClick.end.line);
-                const visibleLine = decorationProvider.getVisibleLine();
-                
                 let textToSend: string;
 
-                // Esegui il blocco multi-riga SOLO se esisteva E se il click è sulla riga attiva della selezione.
                 if (wasMultiLine && clickedLine === visibleLine) {
                     editor.selection = selectionBeforeClick;
-                    textToSend = editor.document.getText(selectionBeforeClick);
-                    lastSelection = undefined; // "Consuma" la selezione per evitare riutilizzi
+
+                    const rawText = editor.document.getText(selectionBeforeClick);
+                    textToSend = rawText
+                        .split(/\r?\n/)
+                        .filter(line => {
+                            const trimmed = line.trim();
+                            return trimmed.length > 0 && !trimmed.startsWith('#');
+                        })
+                        .join('\n');
+
+                    lastSelection = undefined;
                 } else {
-                    // In tutti gli altri casi, esegui solo la singola riga cliccata.
                     const clickedLineObject = editor.document.lineAt(clickedLine);
                     const lineSelection = new vscode.Selection(clickedLineObject.range.start, clickedLineObject.range.end);
                     editor.selection = lineSelection;
                     textToSend = clickedLineObject.text;
                 }
-                
+
                 sendToTerminal(textToSend);
             }
         })
