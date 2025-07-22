@@ -4,3 +4,4 @@ pwd
 
 # Questa è una riga di commento
 date
+pwd

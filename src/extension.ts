@@ -1,160 +1,211 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
+/**
+ * Gestisce la creazione e l'aggiornamento delle decorazioni "play" a lato di ogni riga eseguibile.
+ */
 class ShellLineDecorationProvider {
-    private clickableDecorationType: vscode.TextEditorDecorationType;
-    private clickedDecorationType: vscode.TextEditorDecorationType;
-    
+    private visibleDecorationType: vscode.TextEditorDecorationType;
+    private fadedDecorationType: vscode.TextEditorDecorationType;
     private decorationRanges: Map<string, vscode.Range[]> = new Map();
-    private currentClickedLine: number = -1;
-    
+    private visibleLine: number = -1; // Traccia la linea con la decorazione attiva
+
     constructor() {
-
-        this.clickableDecorationType = vscode.window.createTextEditorDecorationType({
+        // Decorazione per la riga attiva (più visibile)
+        this.visibleDecorationType = vscode.window.createTextEditorDecorationType({
             before: {
                 contentText: '▶',
-                color: 'rgba(173, 173, 173, 0.8)', 
-                margin: '0 4px 0 0',
-                textDecoration: 'none; cursor: pointer;' 
-            },
-            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
-        });
-
-        this.clickedDecorationType = vscode.window.createTextEditorDecorationType({
-            before: {
-                contentText: '▶',
-                color: '#FFFFFF', 
+                color: 'rgba(255,255,255,0.8)',
                 margin: '0 4px 0 0',
                 textDecoration: 'none; cursor: pointer;',
             },
-            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
+        });
+
+        // Decorazione per le altre righe eseguibili (meno visibile)
+        this.fadedDecorationType = vscode.window.createTextEditorDecorationType({
+            before: {
+                contentText: '▶',
+                color: 'rgba(255,255,255,0.1)',
+                margin: '0 4px 0 0',
+                textDecoration: 'none; cursor: pointer;',
+            },
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
         });
     }
 
+    /**
+     * Controlla se una riga contiene codice eseguibile (non vuota e non un commento).
+     */
     private isExecutableLine(line: vscode.TextLine): boolean {
-        const trimmedText = line.text.trim();
-
-        return !(trimmedText.length === 0 || trimmedText.startsWith('#'));
+        const trimmed = line.text.trim();
+        return trimmed.length > 0 && !trimmed.startsWith('#');
     }
 
-    public updateDecorations(editor: vscode.TextEditor) {
-        const clickableDecorations: vscode.DecorationOptions[] = [];
-        const clickedDecorations: vscode.DecorationOptions[] = [];
-        const newRanges: vscode.Range[] = [];
-        
+    /**
+     * Aggiorna le decorazioni nell'editor, evidenziando la riga attiva.
+     */
+    public updateDecorations(editor: vscode.TextEditor, selection?: vscode.Selection) {
+        const faded: vscode.DecorationOptions[] = [];
+        const visible: vscode.DecorationOptions[] = [];
+        const ranges: vscode.Range[] = [];
+
+        const active = selection ?? editor.selection;
+        // Calcola la riga attiva (la prima riga di una selezione) e la memorizza.
+        const selectedLine = !active.isEmpty ? Math.min(active.start.line, active.end.line) : -1;
+        this.visibleLine = selectedLine;
+
         for (let i = 0; i < editor.document.lineCount; i++) {
             const line = editor.document.lineAt(i);
-            if (this.isExecutableLine(line)) {
-                const range = new vscode.Range(i, 0, i, 0);
-                newRanges.push(range);
-                
-                const decoration = {
-                    range,
-                    hoverMessage: 'Click to run this line' 
-                };
+            if (!this.isExecutableLine(line)) continue;
 
-                if (i === this.currentClickedLine) {
-                    clickedDecorations.push(decoration);
-                } else {
-                    clickableDecorations.push(decoration);
-                }
+            const range = new vscode.Range(i, 0, i, 0);
+            ranges.push(range);
+
+            const deco = { range, hoverMessage: 'Click to run' };
+            if (i === selectedLine) {
+                visible.push(deco);
+            } else {
+                faded.push(deco);
             }
         }
-        
-        this.decorationRanges.set(editor.document.uri.toString(), newRanges);
-        editor.setDecorations(this.clickableDecorationType, clickableDecorations);
-        editor.setDecorations(this.clickedDecorationType, clickedDecorations);
+
+        this.decorationRanges.set(editor.document.uri.toString(), ranges);
+        editor.setDecorations(this.visibleDecorationType, visible);
+        editor.setDecorations(this.fadedDecorationType, faded);
     }
 
-    public handleClick(editor: vscode.TextEditor, position: vscode.Position): boolean {
+    /**
+     * Restituisce il numero di riga se il click è avvenuto su una decorazione.
+     */
+    public getClickedLine(editor: vscode.TextEditor, position: vscode.Position): number | undefined {
         const ranges = this.decorationRanges.get(editor.document.uri.toString());
-        if (!ranges) return false;
+        if (!ranges) return;
 
         for (const range of ranges) {
             if (range.contains(position)) {
-                const lineToRun = range.start.line;
-
-                this.currentClickedLine = lineToRun;
-                this.updateDecorations(editor);
-                
-                setTimeout(() => {
-                    this.currentClickedLine = -1;
-                    if (vscode.window.activeTextEditor === editor) {
-                        this.updateDecorations(editor);
-                    }
-                }, 250);
-                
-                vscode.commands.executeCommand('shell-line-runner.runLine', lineToRun);
-                return true;
+                return range.start.line;
             }
         }
-        return false;
+        return;
     }
 
+    /**
+     * Restituisce il numero della riga che ha la decorazione attiva (visibile).
+     */
+    public getVisibleLine(): number {
+        return this.visibleLine;
+    }
+
+    /**
+     * Rilascia le risorse delle decorazioni quando l'estensione viene disattivata.
+     */
     public dispose() {
-        this.clickableDecorationType.dispose();
-        this.clickedDecorationType.dispose();
+        this.visibleDecorationType.dispose();
+        this.fadedDecorationType.dispose();
     }
 }
 
-let decorationProvider: ShellLineDecorationProvider;
-
+const decorationProvider = new ShellLineDecorationProvider();
+/**
+ * Funzione principale che attiva l'estensione.
+ */
 export function activate(context: vscode.ExtensionContext) {
-    decorationProvider = new ShellLineDecorationProvider();
+    let lastSelection: vscode.Selection | undefined;
 
-    const updateDecorationsForActiveEditor = () => {
-        const editor = vscode.window.activeTextEditor;
-        if (editor && editor.document.languageId === 'shellscript') {
-            decorationProvider.updateDecorations(editor);
-        }
-    };
-
+    // Aggiorna le decorazioni quando l'editor attivo cambia
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
-            updateDecorationsForActiveEditor();
+            if (editor && editor.document.languageId === 'shellscript') {
+                decorationProvider.updateDecorations(editor);
+                lastSelection = editor.selection;
+            }
         })
     );
 
+    // Aggiorna le decorazioni quando il testo del documento cambia
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event => {
             const editor = vscode.window.activeTextEditor;
-            if (editor && event.document === editor.document) {
-                updateDecorationsForActiveEditor();
+            if (editor && editor.document === event.document && editor.document.languageId === 'shellscript') {
+                decorationProvider.updateDecorations(editor, editor.selection);
             }
         })
     );
-    
+
+    // Gestore principale per click ed eventi di selezione
     context.subscriptions.push(
         vscode.window.onDidChangeTextEditorSelection(event => {
-            if (event.textEditor.document.languageId === 'shellscript' &&
-                event.kind === vscode.TextEditorSelectionChangeKind.Mouse && 
-                event.selections.length === 1 &&
-                event.selections[0].isEmpty) 
-            {
-                const position = event.selections[0].active;
-                decorationProvider.handleClick(event.textEditor, position);
-            }
-        })
-    );
-    
-    updateDecorationsForActiveEditor();
+            const editor = event.textEditor;
+            if (editor.document.languageId !== 'shellscript') return;
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand('shell-line-runner.runLine', (line: number) => {
-            const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.languageId === 'shellscript') {
-                const lineObject = editor.document.lineAt(line);
+            const currentSelection = event.selections[0];
+            const selectionBeforeClick = lastSelection;
+            lastSelection = currentSelection;
+            
+            decorationProvider.updateDecorations(editor, currentSelection);
+            
+            const clickedLine = decorationProvider.getClickedLine(editor, currentSelection.active);
+
+            // Controlla se l'evento è un click su una decorazione ▶
+            if (
+                event.kind === vscode.TextEditorSelectionChangeKind.Mouse &&
+                currentSelection.isEmpty &&
+                clickedLine !== undefined
+            ) {
+                const wasMultiLine = selectionBeforeClick && !selectionBeforeClick.isEmpty && (selectionBeforeClick.start.line !== selectionBeforeClick.end.line);
+                const visibleLine = decorationProvider.getVisibleLine();
                 
-                editor.selection = new vscode.Selection(lineObject.range.start, lineObject.range.end);
-                editor.revealRange(lineObject.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                let textToSend: string;
 
-                const terminal = vscode.window.activeTerminal || vscode.window.createTerminal({ name: "Shell Runner" });
-                terminal.show();
-                terminal.sendText(lineObject.text);
+                // Esegui il blocco multi-riga SOLO se esisteva E se il click è sulla riga attiva della selezione.
+                if (wasMultiLine && clickedLine === visibleLine) {
+                    editor.selection = selectionBeforeClick;
+                    textToSend = editor.document.getText(selectionBeforeClick);
+                    lastSelection = undefined; // "Consuma" la selezione per evitare riutilizzi
+                } else {
+                    // In tutti gli altri casi, esegui solo la singola riga cliccata.
+                    const clickedLineObject = editor.document.lineAt(clickedLine);
+                    const lineSelection = new vscode.Selection(clickedLineObject.range.start, clickedLineObject.range.end);
+                    editor.selection = lineSelection;
+                    textToSend = clickedLineObject.text;
+                }
+                
+                sendToTerminal(textToSend);
             }
         })
     );
+
+    // Inizializza le decorazioni all'avvio se un file shell è già aperto
+    if (vscode.window.activeTextEditor) {
+        const editor = vscode.window.activeTextEditor;
+        if (editor.document.languageId === 'shellscript') {
+            decorationProvider.updateDecorations(editor);
+            lastSelection = editor.selection;
+        }
+    }
+
+    // Aggiunge il provider alla lista di oggetti da deallocare
+    context.subscriptions.push({ dispose: () => decorationProvider.dispose() });
 }
+
+/**
+ * Invia il testo fornito al terminale attivo, o ne crea uno nuovo.
+ */
+function sendToTerminal(text: string) {
+    const terminal = vscode.window.activeTerminal || vscode.window.createTerminal({ name: 'Shell Runner' });
+    terminal.show();
+
+    // Invia una riga alla volta per una maggiore robustezza
+    text.split(/\r?\n/).forEach(line => {
+        if (line.trim().length > 0) {
+            terminal.sendText(line);
+        }
+    });
+}
+
+/**
+ * Funzione chiamata quando l'estensione viene disattivata.
+ */
 
 export function deactivate() {
     if (decorationProvider) {
