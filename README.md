@@ -1,71 +1,40 @@
-# shell-line-runner README
+# Shell Line Runner
 
-This is the README for your extension "shell-line-runner". After writing up a brief description, we recommend including the following sections.
+**Shell Line Runner** is a Visual Studio Code extension that adds a play button (`▶`) to each executable line in a shell script, allowing you to run individual commands or selected blocks directly in the integrated terminal.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Adds `▶` play icons next to each executable line in `.sh` files
+- Click the icon to run the specific line or selected block in the terminal
+- Highlights the active line for better visibility
+- Automatically filters out empty lines and comments from selected blocks
+- Runs one line at a time for better debugging and readability
 
-For example if there is an image subfolder under your extension project workspace:
+![1753189759669](image/README/1753189759669.png)
 
-\!\[feature X\]\(images/feature-x.png\)
+## How to Use
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+1. Open a `.sh` or shell script file.
+2. Hover over a line — a faded play icon appears.
+3. Select multiple lines if you want to run a block.
+4. Click the `▶` on the active line to run the whole block, or on any line to run it individually.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- No dependencies required.
+- Works with any standard VS Code installation.
+
+## Known Limitations
+
+- Hover behavior is simulated via selection and not true mouse hover.
+- The play icon appears only for shell scripts (`shellscript` language).
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
+None (yet).
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.1
 
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+- Initial release of Shell Line Runner

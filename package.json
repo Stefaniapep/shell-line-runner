@@ -4,7 +4,11 @@
   "description": "Runs a single shell script line from the editor in terminal.",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.102.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StefaniaPepe/shell-line-runner.git"
   },
   "categories": [
     "Other"
